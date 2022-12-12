@@ -87,14 +87,36 @@ impl<'a> Memory<'a> {
             self.layout.runtime_page_table_base,
             TD_PAYLOAD_PAGE_TABLE_SIZE as usize,
         );
-
-        // Create mapping for 0 - base address of runtime layout region
         td_paging::create_mapping(
             &mut self.pt,
             PhysAddr::new(0),
             VirtAddr::new(0),
             td_paging::PAGE_SIZE_DEFAULT as u64,
-            self.layout.runtime_memory_bottom,
+            0xa0_0000,
+        );
+        use x86_64::structures::paging::PageTableFlags;
+        let shared_page_flag =
+            tdx_tdcall::tdx::td_shared_mask().expect("Failed to get TD shared mask");
+        let mut flags = Flags::PRESENT | Flags::WRITABLE;
+        flags = unsafe { Flags::from_bits_unchecked(flags.bits() | shared_page_flag) };
+        // Create mapping for 0 - base address of runtime layout region
+        td_paging::create_mapping_with_flags(
+            &mut self.pt,
+            PhysAddr::new(0xa00000),
+            VirtAddr::new(0xa00000),
+            td_paging::PAGE_SIZE_DEFAULT as u64,
+            0x80_0000,
+            flags,
+        )
+        .expect("Fail to map 0 to runtime memory bottom");
+
+        // Create mapping for 0 - base address of runtime layout region
+        td_paging::create_mapping(
+            &mut self.pt,
+            PhysAddr::new(0x1200000),
+            VirtAddr::new(0x1200000),
+            td_paging::PAGE_SIZE_DEFAULT as u64,
+            self.layout.runtime_memory_bottom - 0x120_0000,
         )
         .expect("Fail to map 0 to runtime memory bottom");
 
